@@ -20,7 +20,7 @@ public class ScrollActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_scroll);
 
         // Initialize UI components
         petImage = findViewById(R.id.petImage);
