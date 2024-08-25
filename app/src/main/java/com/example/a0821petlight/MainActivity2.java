@@ -2,17 +2,21 @@ package com.example.a0821petlight;
 
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
-import android.provider.MediaStore;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import java.io.ByteArrayOutputStream;
+
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity2 extends AppCompatActivity {
 
@@ -20,6 +24,8 @@ public class MainActivity2 extends AppCompatActivity {
     private ImageView imageView;
     private EditText editTextName, editTextBreed, editTextLocation, editTextPhone;
     private Bitmap selectedImageBitmap;
+
+    public static List<PetInfo> petInfoList = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,7 +45,7 @@ public class MainActivity2 extends AppCompatActivity {
 
         buttonConfirm.setOnClickListener(v -> showConfirmationDialog());
 
-        buttonCancel.setOnClickListener(v -> finish()); // 返回並結束活動
+        buttonCancel.setOnClickListener(v -> finish());
     }
 
     private void openImageChooser() {
@@ -55,21 +61,58 @@ public class MainActivity2 extends AppCompatActivity {
         if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null && data.getData() != null) {
             Uri imageUri = data.getData();
             try {
-                selectedImageBitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), imageUri);
+                // 使用 BitmapFactory.Options 進行圖片壓縮
+                BitmapFactory.Options options = new BitmapFactory.Options();
+                options.inJustDecodeBounds = true;
+
+                // 獲取原圖尺寸
+                InputStream inputStream = getContentResolver().openInputStream(imageUri);
+                BitmapFactory.decodeStream(inputStream, null, options);
+                inputStream.close();
+
+                // 計算壓縮比例
+                options.inSampleSize = calculateInSampleSize(options, 300, 300); // 目标宽高
+                options.inJustDecodeBounds = false;
+
+                // 再次打開圖片進行壓縮
+                inputStream = getContentResolver().openInputStream(imageUri);
+                selectedImageBitmap = BitmapFactory.decodeStream(inputStream, null, options);
+                inputStream.close();
+
+                // 設置壓縮後的圖片到 ImageView
                 imageView.setImageBitmap(selectedImageBitmap);
+
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
     }
 
+    // 計算 inSampleSize 方法，用於確認壓縮比例
+    private int calculateInSampleSize(BitmapFactory.Options options, int reqWidth, int reqHeight) {
+        final int height = options.outHeight;
+        final int width = options.outWidth;
+        int inSampleSize = 1;
+
+        if (height > reqHeight || width > reqWidth) {
+            final int halfHeight = height / 2;
+            final int halfWidth = width / 2;
+
+            while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
+                inSampleSize *= 2;
+            }
+        }
+
+        return inSampleSize;
+    }
+
     private void showConfirmationDialog() {
         new AlertDialog.Builder(this)
-                .setTitle("確認儲存")
-                .setMessage("您確認要儲存這些資訊嗎？")
-                .setPositiveButton("確認", (dialog, which) -> savePetInfo())
-                .setNegativeButton("取消", null)
-                .show();
+            .setTitle("確定新增?")
+            .setMessage("確定內容並儲存")
+            .setPositiveButton("確認", (dialog, which) -> savePetInfo())
+            .setNegativeButton("取消", null)
+            .show();
     }
 
     private void savePetInfo() {
@@ -78,19 +121,18 @@ public class MainActivity2 extends AppCompatActivity {
         String location = editTextLocation.getText().toString();
         String phone = editTextPhone.getText().toString();
 
-        Intent intent = new Intent(MainActivity2.this, ScrollActivity.class);
-        intent.putExtra("pet_name", name);
-        intent.putExtra("pet_breed", breed);
-        intent.putExtra("pet_location", location);
-        intent.putExtra("pet_phone", phone);
-
+        Bitmap image = null;
         if (selectedImageBitmap != null) {
-            ByteArrayOutputStream stream = new ByteArrayOutputStream();
-            selectedImageBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
-            byte[] byteArray = stream.toByteArray();
-            intent.putExtra("pet_image", byteArray);
+            image = selectedImageBitmap;
         }
 
+        PetInfo petInfo = new PetInfo(name, breed, location, phone, image);
+        petInfoList.add(petInfo);
+
+        Intent intent = new Intent(MainActivity2.this, DisplayActivity.class);
         startActivity(intent);
     }
 }
+
+
+
